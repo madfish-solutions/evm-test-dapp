@@ -1,4 +1,7 @@
+import { utils, BigNumber } from 'ethers';
+
 import globalContext from '../..';
+import { specifyGasParametersInputId } from './global-settings';
 
 export function erc20Component(parentContainer) {
   parentContainer.insertAdjacentHTML(
@@ -199,6 +202,9 @@ export function erc20Component(parentContainer) {
 
   const tokenMethodsResult = document.getElementById('tokenMethodsResult');
   const decimalUnitsInput = document.getElementById('tokenDecimals');
+  const specifyGasParametersInput = document.getElementById(
+    specifyGasParametersInputId,
+  );
   const approveTokensToInput = document.getElementById('approveTo');
   const transferFromSenderInput = document.getElementById(
     'transferFromSenderInput',
@@ -333,92 +339,118 @@ export function erc20Component(parentContainer) {
     });
   };
 
-  transferTokens.onclick = async () => {
+  async function makeOperation(method, ...args) {
     const contract = hstContract || globalContext.hstContract;
-    const result = await contract.transfer(
+    let result;
+    if (specifyGasParametersInput.checked) {
+      result = await contract[method](...args);
+    } else {
+      const params = await contract.populateTransaction[method](...args);
+      result = await globalContext.provider.request({
+        method: 'eth_sendTransaction',
+        params: [
+          {
+            ...params,
+            gasPrice: params.gasPrice
+              ? params.gasPrice.toHexString()
+              : undefined,
+          },
+        ],
+      });
+    }
+
+    console.log('result', result);
+
+    return result;
+  }
+
+  function withErrorHandling(fn) {
+    return async (...args) => {
+      try {
+        await fn(...args);
+      } catch (error) {
+        console.log('error', error);
+      }
+    };
+  }
+
+  transferTokens.onclick = withErrorHandling(() =>
+    makeOperation(
+      'transfer',
       '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
-      decimalUnitsInput.value === '0'
-        ? 1
-        : `${1.5 * 10 ** decimalUnitsInput.value}`,
-      { from: globalContext.accounts[0] },
-    );
-    console.log('result', result);
-  };
+      BigNumber.from(10)
+        .pow(decimalUnitsInput.value)
+        .mul(3)
+        .div(2)
+        .toHexString(),
+    ),
+  );
 
-  approveTokens.onclick = async () => {
-    const contract = hstContract || globalContext.hstContract;
-    const result = await contract.approve(
+  approveTokens.onclick = withErrorHandling(() =>
+    makeOperation(
+      'approve',
       approveTokensToInput.value,
-      `${7 * 10 ** decimalUnitsInput.value}`,
-      { from: globalContext.accounts[0] },
-    );
-    console.log('result', result);
-  };
+      BigNumber.from(10).pow(decimalUnitsInput.value).mul(7).toHexString(),
+    ),
+  );
 
-  increaseTokenAllowance.onclick = async () => {
-    const contract = hstContract || globalContext.hstContract;
-    const result = await contract.increaseAllowance(
+  increaseTokenAllowance.onclick = withErrorHandling(() =>
+    makeOperation(
+      'increaseAllowance',
       approveTokensToInput.value,
-      `${1 * 10 ** decimalUnitsInput.value}`,
-      { from: globalContext.accounts[0] },
-    );
-    console.log('result', result);
-  };
+      BigNumber.from(10).pow(decimalUnitsInput.value).mul(1).toHexString(),
+    ),
+  );
 
-  getAllowance.onclick = async () => {
-    const contract = hstContract || globalContext.hstContract;
-    const result = await contract.allowance(
+  getAllowance.onclick = withErrorHandling(async () => {
+    const result = await makeOperation(
+      'allowance',
       allowanceOwnerInput.value,
       allowanceSpenderInput.value,
-      { from: globalContext.accounts[0] },
     );
-    const allowance = result.toNumber() / 10 ** decimalUnitsInput.value;
-    allowanceAmountResult.innerHTML = allowance.toFixed(
-      decimalUnitsInput.value,
+    allowanceAmountResult.innerHTML = utils.formatUnits(
+      result,
+      Number(decimalUnitsInput.value),
     );
-  };
+  });
 
-  transferFromTokens.onclick = async () => {
-    try {
-      const contract = hstContract || globalContext.hstContract;
-      const result = await contract.transferFrom(
-        transferFromSenderInput.value,
-        transferFromRecipientInput.value,
-        decimalUnitsInput.value === '0'
-          ? 1
-          : `${1.5 * 10 ** decimalUnitsInput.value}`,
-        { from: globalContext.accounts[0] },
-      );
-      console.log('result', result);
-      tokenMethodsResult.innerHTML = result;
-    } catch (error) {
-      tokenMethodsResult.innerText = `${error.message}`;
-    }
-  };
+  transferFromTokens.onclick = withErrorHandling(async () => {
+    const result = await makeOperation(
+      'transferFrom',
+      transferFromSenderInput.value,
+      transferFromRecipientInput.value,
+      BigNumber.from(10)
+        .pow(decimalUnitsInput.value)
+        .mul(3)
+        .div(2)
+        .toHexString(),
+    );
+    tokenMethodsResult.innerHTML = result;
+  });
 
-  transferTokensWithoutGas.onclick = async () => {
-    const contract = hstContract || globalContext.hstContract;
-    const result = await contract.transfer(
+  transferTokensWithoutGas.onclick = withErrorHandling(() =>
+    makeOperation(
+      'transfer',
       '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
-      decimalUnitsInput.value === '0'
-        ? 1
-        : `${1.5 * 10 ** decimalUnitsInput.value}`,
+      BigNumber.from(10)
+        .pow(decimalUnitsInput.value)
+        .mul(3)
+        .div(2)
+        .toHexString(),
       {
         gasPrice: '20000000000',
       },
-    );
-    console.log('result', result);
-  };
+    ),
+  );
 
-  approveTokensWithoutGas.onclick = async () => {
-    const contract = hstContract || globalContext.hstContract;
-    const result = await contract.approve(
+  approveTokensWithoutGas.onclick = withErrorHandling(() =>
+    makeOperation(
+      'approve',
       '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
-      `${7 * 10 ** decimalUnitsInput.value}`,
+      BigNumber.from(10).pow(decimalUnitsInput.value).mul(7).toHexString(),
       {
         gasPrice: '20000000000',
       },
-    );
-    console.log('result', result);
-  };
+    ),
+  );
 }

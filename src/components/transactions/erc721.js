@@ -2,6 +2,7 @@ import { recoverTypedSignature } from '@metamask/eth-sig-util';
 import { toChecksumAddress } from 'ethereumjs-util';
 import { splitSig } from '../../signatures/utils';
 import globalContext from '../..';
+import { specifyGasParametersInputId } from './global-settings';
 
 export function erc721Component(parentContainer) {
   parentContainer.insertAdjacentHTML(
@@ -178,6 +179,9 @@ export function erc721Component(parentContainer) {
     </div>`,
   );
 
+  const specifyGasParametersInput = document.getElementById(
+    specifyGasParametersInputId,
+  );
   // NFTs Section
   const deployNFTsButton = document.getElementById('deployNFTsButton');
   const mintButton = document.getElementById('mintButton');
@@ -318,14 +322,28 @@ export function erc721Component(parentContainer) {
     console.log(watchNftsResult);
   };
 
-  mintButton.onclick = async () => {
+  async function makeOperation(method, ...args) {
     const contract = nftsContract || globalContext.nftsContract;
-    nftsStatus.innerHTML = 'Mint initiated';
-    let result = await contract.mintNFTs(mintAmountInput.value, {
-      from: globalContext.accounts[0],
-    });
+    let result;
+    if (specifyGasParametersInput.checked) {
+      result = await contract[method](...args);
+    } else {
+      const params = await contract.populateTransaction[method](...args);
+      result = await globalContext.provider.request({
+        method: 'eth_sendTransaction',
+        params: [params],
+      });
+    }
+
     result = await result.wait();
     console.log(result);
+
+    return result;
+  }
+
+  mintButton.onclick = async () => {
+    nftsStatus.innerHTML = 'Mint initiated';
+    await makeOperation('mintNFTs', mintAmountInput.value);
     nftsStatus.innerHTML = 'Mint completed';
     approveTokenInput.disabled = false;
     approveButton.disabled = false;
@@ -419,63 +437,43 @@ export function erc721Component(parentContainer) {
   };
 
   approveButton.onclick = async () => {
-    const contract = nftsContract || globalContext.nftsContract;
     nftsStatus.innerHTML = 'Approve initiated';
-    let result = await contract.approve(
+    await makeOperation(
+      'approve',
       '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
       approveTokenInput.value,
-      {
-        from: globalContext.accounts[0],
-      },
     );
-    result = await result.wait();
-    console.log(result);
     nftsStatus.innerHTML = 'Approve completed';
   };
 
   setApprovalForAllButton.onclick = async () => {
     nftsStatus.innerHTML = 'Set Approval For All initiated';
-    const contract = nftsContract || globalContext.nftsContract;
-    let result = await contract.setApprovalForAll(
+    await makeOperation(
+      'setApprovalForAll',
       '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
       true,
-      {
-        from: globalContext.accounts[0],
-      },
     );
-    result = await result.wait();
-    console.log(result);
     nftsStatus.innerHTML = 'Set Approval For All completed';
   };
 
   revokeButton.onclick = async () => {
     nftsStatus.innerHTML = 'Revoke initiated';
-    const contract = nftsContract || globalContext.nftsContract;
-    let result = await contract.setApprovalForAll(
+    await makeOperation(
+      'setApprovalForAll',
       '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
       false,
-      {
-        from: globalContext.accounts[0],
-      },
     );
-    result = await result.wait();
-    console.log(result);
     nftsStatus.innerHTML = 'Revoke completed';
   };
 
   transferFromButton.onclick = async () => {
     nftsStatus.innerHTML = 'Transfer From initiated';
-    const contract = nftsContract || globalContext.nftsContract;
-    let result = await contract.transferFrom(
+    await makeOperation(
+      'transferFrom',
       globalContext.accounts[0],
       '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
       transferTokenInput.value,
-      {
-        from: globalContext.accounts[0],
-      },
     );
-    result = await result.wait();
-    console.log(result);
     nftsStatus.innerHTML = 'Transfer From completed';
   };
 

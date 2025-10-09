@@ -1,6 +1,7 @@
 import globalContext from '../..';
 import Constants from '../../constants.json';
 import { MIN_GAS_LIMIT } from '../../shared/constants';
+import { specifyGasParametersInputId } from './global-settings';
 
 const { heavyCallData } = Constants;
 
@@ -29,14 +30,6 @@ export function sendComponent(parentContainer) {
                 hidden
             >
                 Send EIP 1559 Transaction
-            </button>
-            <button
-                class="btn btn-primary btn-lg btn-block mb-3"
-                id="sendEIP1559WithoutGasButton"
-                disabled
-                hidden
-            >
-                Send EIP 1559 Without Gas
             </button>
             <a
                 id="sendDeeplinkButton"
@@ -138,7 +131,7 @@ export function sendComponent(parentContainer) {
                     id="sendHeavyHexDataButton"
                     disabled
                 >
-                    Send with heavy hex data
+                    Send with heavy hex data (always without gas parameters)
                 </button>
             </div>
             </div>
@@ -148,9 +141,6 @@ export function sendComponent(parentContainer) {
 
   const sendButton = document.getElementById('sendButton');
   const sendEIP1559Button = document.getElementById('sendEIP1559Button');
-  const sendEIP1559WithoutGasButton = document.getElementById(
-    'sendEIP1559WithoutGasButton',
-  );
   const sendDeeplinkButton = document.getElementById('sendDeeplinkButton');
   const deployButton = document.getElementById('deployButton');
   const depositButton = document.getElementById('depositButton');
@@ -168,6 +158,9 @@ export function sendComponent(parentContainer) {
   );
   const sendHeavyHexDataButton = document.getElementById(
     'sendHeavyHexDataButton',
+  );
+  const specifyGasParametersInput = document.getElementById(
+    specifyGasParametersInputId,
   );
 
   sendDeeplinkButton.href =
@@ -215,14 +208,10 @@ export function sendComponent(parentContainer) {
     if (e.detail.supported) {
       sendEIP1559Button.disabled = false;
       sendEIP1559Button.hidden = false;
-      sendEIP1559WithoutGasButton.disabled = false;
-      sendEIP1559WithoutGasButton.hidden = false;
       sendButton.innerText = 'Send Legacy Transaction';
     } else {
       sendEIP1559Button.disabled = true;
       sendEIP1559Button.hidden = true;
-      sendEIP1559WithoutGasButton.disabled = true;
-      sendEIP1559WithoutGasButton.hidden = true;
       sendButton.innerText = 'Send';
     }
   });
@@ -232,6 +221,7 @@ export function sendComponent(parentContainer) {
    */
 
   sendButton.onclick = async () => {
+    const specifyGasParameters = specifyGasParametersInput.checked;
     const result = await globalContext.provider.request({
       method: 'eth_sendTransaction',
       params: [
@@ -239,8 +229,8 @@ export function sendComponent(parentContainer) {
           from: globalContext.accounts[0],
           to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
           value: '0x0',
-          gasLimit: '0x5208',
-          gasPrice: '0x2540be400',
+          gasLimit: specifyGasParameters ? '0x5208' : undefined,
+          gasPrice: specifyGasParameters ? '0x2540be400' : undefined,
           type: '0x0',
         },
       ],
@@ -249,6 +239,7 @@ export function sendComponent(parentContainer) {
   };
 
   sendEIP1559Button.onclick = async () => {
+    const specifyGasParameters = specifyGasParametersInput.checked;
     const result = await globalContext.provider.request({
       method: 'eth_sendTransaction',
       params: [
@@ -256,23 +247,9 @@ export function sendComponent(parentContainer) {
           from: globalContext.accounts[0],
           to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
           value: '0x0',
-          gasLimit: MIN_GAS_LIMIT,
-          maxFeePerGas: '0x2540be400',
-          maxPriorityFeePerGas: '0x3b9aca00',
-        },
-      ],
-    });
-    console.log(result);
-  };
-
-  sendEIP1559WithoutGasButton.onclick = async () => {
-    const result = await globalContext.provider.request({
-      method: 'eth_sendTransaction',
-      params: [
-        {
-          from: globalContext.accounts[0],
-          to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
-          value: '0x0',
+          gasLimit: specifyGasParameters ? MIN_GAS_LIMIT : undefined,
+          maxFeePerGas: specifyGasParameters ? '0x2540be400' : undefined,
+          maxPriorityFeePerGas: specifyGasParameters ? '0x3b9aca00' : undefined,
         },
       ],
     });
@@ -307,29 +284,51 @@ export function sendComponent(parentContainer) {
     withdrawButton.disabled = false;
   };
 
-  depositButton.onclick = async () => {
-    contractStatus.innerHTML = 'Deposit initiated';
+  async function makePiggybankOperation(method, ...args) {
     const contract = piggybankContract || globalContext.piggybankContract;
-    const result = await contract.deposit({
-      from: globalContext.accounts[0],
-      value: '0x3782dace9d900000',
-    });
-    console.log(result);
-    const receipt = await result.wait();
-    console.log(receipt);
-    contractStatus.innerHTML = 'Deposit completed';
-  };
+    let result;
+    if (specifyGasParametersInput.checked) {
+      result = await contract[method](...args);
+    } else {
+      const params = await contract.populateTransaction[method](...args);
+      result = await globalContext.provider.request({
+        method: 'eth_sendTransaction',
+        params: [
+          {
+            ...params,
+            value: params.value ? params.value.toHexString() : undefined,
+          },
+        ],
+      });
+    }
 
-  withdrawButton.onclick = async () => {
-    const contract = piggybankContract || globalContext.piggybankContract;
-    const result = await contract.withdraw('0xde0b6b3a7640000', {
-      from: globalContext.accounts[0],
-    });
     console.log(result);
     const receipt = await result.wait();
     console.log(receipt);
+
+    return receipt;
+  }
+
+  function withErrorHandling(fn) {
+    return async (...args) => {
+      try {
+        await fn(...args);
+      } catch (error) {
+        console.log('error', error);
+      }
+    };
+  }
+
+  depositButton.onclick = withErrorHandling(async () => {
+    contractStatus.innerHTML = 'Deposit initiated';
+    await makePiggybankOperation('deposit', { value: '0x3782dace9d900000' });
+    contractStatus.innerHTML = 'Deposit completed';
+  });
+
+  withdrawButton.onclick = withErrorHandling(async () => {
+    await makePiggybankOperation('withdraw', '0xde0b6b3a7640000');
     contractStatus.innerHTML = 'Withdrawn';
-  };
+  });
 
   /**
    * Failing
@@ -360,6 +359,7 @@ export function sendComponent(parentContainer) {
 
   sendFailingButton.onclick = async () => {
     try {
+      const specifyGasParameters = specifyGasParametersInput.checked;
       const contract = failingContract || globalContext.failingContract;
       const result = await globalContext.provider.request({
         method: 'eth_sendTransaction',
@@ -368,9 +368,11 @@ export function sendComponent(parentContainer) {
             from: globalContext.accounts[0],
             to: contract.address,
             value: '0x0',
-            gasLimit: MIN_GAS_LIMIT,
-            maxFeePerGas: '0x2540be400',
-            maxPriorityFeePerGas: '0x3b9aca00',
+            gasLimit: specifyGasParameters ? MIN_GAS_LIMIT : undefined,
+            maxFeePerGas: specifyGasParameters ? '0x2540be400' : undefined,
+            maxPriorityFeePerGas: specifyGasParameters
+              ? '0x3b9aca00'
+              : undefined,
           },
         ],
       });
@@ -411,6 +413,7 @@ export function sendComponent(parentContainer) {
 
   sendMultisigButton.onclick = async () => {
     try {
+      const specifyGasParameters = specifyGasParametersInput.checked;
       const contract = multisigContract || globalContext.multisigContract;
       const result = await globalContext.provider.request({
         method: 'eth_sendTransaction',
@@ -419,9 +422,11 @@ export function sendComponent(parentContainer) {
             from: globalContext.accounts[0],
             to: contract.address,
             value: '0x16345785D8A0', // 24414062500000
-            gasLimit: MIN_GAS_LIMIT,
-            maxFeePerGas: '0x2540be400',
-            maxPriorityFeePerGas: '0x3b9aca00',
+            gasLimit: specifyGasParameters ? MIN_GAS_LIMIT : undefined,
+            maxFeePerGas: specifyGasParameters ? '0x2540be400' : undefined,
+            maxPriorityFeePerGas: specifyGasParameters
+              ? '0x3b9aca00'
+              : undefined,
           },
         ],
       });

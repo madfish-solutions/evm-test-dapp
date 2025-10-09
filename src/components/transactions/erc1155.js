@@ -1,4 +1,5 @@
 import globalContext from '../..';
+import { specifyGasParametersInputId } from './global-settings';
 
 export function erc1155Component(parentContainer) {
   parentContainer.insertAdjacentHTML(
@@ -130,6 +131,9 @@ export function erc1155Component(parentContainer) {
   </div>`,
   );
 
+  const specifyGasParametersInput = document.getElementById(
+    specifyGasParametersInputId,
+  );
   const deployERC1155Button = document.getElementById('deployERC1155Button');
   const batchMintTokenIds = document.getElementById('batchMintTokenIds');
   const batchMintIdAmounts = document.getElementById('batchMintIdAmounts');
@@ -233,82 +237,88 @@ export function erc1155Component(parentContainer) {
     watchAssetButton.disabled = false;
   };
 
-  batchMintButton.onclick = async () => {
-    erc1155Status.innerHTML = 'Batch Mint initiated';
+  async function makeOperation(method, ...args) {
     const contract = erc1155Contract || globalContext.erc1155Contract;
-
-    const params = [
-      globalContext.accounts[0],
-      batchMintTokenIds.value.split(',').map(Number),
-      batchMintIdAmounts.value.split(',').map(Number),
-      '0x',
-    ];
-
     let result;
-
-    try {
-      result = await contract.mintBatch(...params);
-    } catch (error) {
-      erc1155Status.innerHTML = 'Mint Failed!';
-      throw error;
+    if (specifyGasParametersInput.checked) {
+      result = await contract[method](...args);
+    } else {
+      const params = await contract.populateTransaction[method](...args);
+      result = await globalContext.provider.request({
+        method: 'eth_sendTransaction',
+        params: [params],
+      });
     }
 
     console.log(result);
-    erc1155Status.innerHTML = 'Batch Minting completed';
+    result = await result.wait();
+
+    return result;
+  }
+
+  batchMintButton.onclick = async () => {
+    erc1155Status.innerHTML = 'Batch Mint initiated';
+    try {
+      await makeOperation(
+        'mintBatch',
+        globalContext.accounts[0],
+        batchMintTokenIds.value.split(',').map(Number),
+        batchMintIdAmounts.value.split(',').map(Number),
+        '0x',
+      );
+      erc1155Status.innerHTML = 'Batch Minting completed';
+    } catch (error) {
+      console.error(error);
+      erc1155Status.innerHTML = 'Mint Failed!';
+    }
   };
 
   batchTransferFromButton.onclick = async () => {
     erc1155Status.innerHTML = 'Batch Transfer From initiated';
-    const contract = erc1155Contract || globalContext.erc1155Contract;
-
-    const params = [
-      globalContext.accounts[0],
-      '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
-      batchTransferTokenIds.value.split(',').map(Number),
-      batchTransferTokenAmounts.value.split(',').map(Number),
-      '0x',
-    ];
-
-    let result;
-
     try {
-      result = await contract.safeBatchTransferFrom(...params);
+      await makeOperation(
+        'safeBatchTransferFrom',
+        globalContext.accounts[0],
+        '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
+        batchTransferTokenIds.value.split(',').map(Number),
+        batchTransferTokenAmounts.value.split(',').map(Number),
+        '0x',
+      );
+      erc1155Status.innerHTML = 'Batch Transfer From completed';
     } catch (error) {
+      console.error(error);
       erc1155Status.innerHTML = 'Transaction Failed!';
-      throw error;
     }
-    console.log(result);
-    erc1155Status.innerHTML = 'Batch Transfer From completed';
   };
 
   setApprovalForAllERC1155Button.onclick = async () => {
     erc1155Status.innerHTML = 'Set Approval For All initiated';
-    const contract = erc1155Contract || globalContext.erc1155Contract;
-    let result = await contract.setApprovalForAll(
-      '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
-      true,
-      {
-        from: globalContext.accounts[0],
-      },
-    );
-    result = await result.wait();
-    console.log(result);
-    erc1155Status.innerHTML = 'Set Approval For All completed';
+    try {
+      await makeOperation(
+        'setApprovalForAll',
+        '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
+        true,
+      );
+      erc1155Status.innerHTML = 'Set Approval For All completed';
+    } catch (error) {
+      console.error(error);
+      erc1155Status.innerHTML = 'Transaction Failed!';
+    }
   };
 
   revokeERC1155Button.onclick = async () => {
     erc1155Status.innerHTML = 'Revoke initiated';
-    const contract = erc1155Contract || globalContext.erc1155Contract;
-    let result = await contract.setApprovalForAll(
-      '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
-      false,
-      {
-        from: globalContext.accounts[0],
-      },
-    );
-    result = await result.wait();
-    console.log(result);
-    erc1155Status.innerHTML = 'Revoke completed';
+    try {
+      await makeOperation(
+        'setApprovalForAll',
+        '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
+        false,
+      );
+      erc1155Status.innerHTML = 'Revoke completed';
+    } catch (error) {
+      console.error(error);
+      erc1155Status.innerHTML = 'Transaction Failed!';
+    }
   };
 
   watchAssetButton.onclick = async () => {

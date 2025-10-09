@@ -19,6 +19,7 @@ import {
   erc1155Component,
   eip747Component,
   erc721Component,
+  specifyGasParametersInputComponent,
 } from './components/transactions';
 import {
   ppomMaliciousSendCalls,
@@ -175,6 +176,12 @@ const sdkConnectBtn = document.getElementById('sdkConnect');
 
 const transactionsSection = document.createElement('section');
 mainContainer.appendChild(transactionsSection);
+
+const globalTransactionsSettingsRow = document.createElement('div');
+globalTransactionsSettingsRow.className = 'row';
+transactionsSection.appendChild(globalTransactionsSettingsRow);
+specifyGasParametersInputComponent(globalTransactionsSettingsRow);
+
 const transactionsRow = document.createElement('div');
 transactionsRow.className = 'row';
 transactionsSection.appendChild(transactionsRow);
