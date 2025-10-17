@@ -1,3 +1,5 @@
+import { utils } from 'ethers';
+
 import globalContext from '../..';
 import Constants from '../../constants.json';
 import { MIN_GAS_LIMIT } from '../../shared/constants';
@@ -14,6 +16,11 @@ export function sendComponent(parentContainer) {
             <h4 class="card-title">
                 Send Eth
             </h4>
+
+            <div class="form-group">
+              <label>Amount (ETH)</label>
+              <input class="form-control" type="text" id="amountInput" value="0">
+            </div>
 
             <button
                 class="btn btn-primary btn-lg btn-block mb-3"
@@ -139,6 +146,7 @@ export function sendComponent(parentContainer) {
     </div>`,
   );
 
+  const amountInput = document.getElementById('amountInput');
   const sendButton = document.getElementById('sendButton');
   const sendEIP1559Button = document.getElementById('sendEIP1559Button');
   const sendDeeplinkButton = document.getElementById('sendDeeplinkButton');
@@ -228,7 +236,7 @@ export function sendComponent(parentContainer) {
         {
           from: globalContext.accounts[0],
           to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
-          value: '0x0',
+          value: utils.parseEther(amountInput.value || '0').toHexString(),
           gasLimit: specifyGasParameters ? '0x5208' : undefined,
           gasPrice: specifyGasParameters ? '0x2540be400' : undefined,
           type: '0x0',
@@ -246,7 +254,7 @@ export function sendComponent(parentContainer) {
         {
           from: globalContext.accounts[0],
           to: '0x0c54FcCd2e384b4BB6f2E405Bf5Cbc15a017AaFb',
-          value: '0x0',
+          value: utils.parseEther(amountInput.value || '0').toHexString(),
           gasLimit: specifyGasParameters ? MIN_GAS_LIMIT : undefined,
           maxFeePerGas: specifyGasParameters ? '0x2540be400' : undefined,
           maxPriorityFeePerGas: specifyGasParameters ? '0x3b9aca00' : undefined,

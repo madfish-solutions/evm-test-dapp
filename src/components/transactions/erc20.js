@@ -1,4 +1,4 @@
-import { utils, BigNumber } from 'ethers';
+import { utils } from 'ethers';
 
 import globalContext from '../..';
 import { specifyGasParametersInputId } from './global-settings';
@@ -29,6 +29,11 @@ export function erc20Component(parentContainer) {
             />
           </div>
 
+          <div class="form-group">
+            <label>Amount</label>
+            <input class="form-control" type="text" id="tokenAmountInput" value="1.5">
+          </div>
+
           <button
             class="btn btn-primary btn-lg btn-block mb-3"
             id="createToken"
@@ -44,6 +49,11 @@ export function erc20Component(parentContainer) {
           >
             Add Token(s) to Wallet
           </button>
+
+          <div class="form-group">
+            <label><code>transfer</code> destination</label>
+            <input class="form-control" type="text" id="transferToInput" value="0x2f318C334780961FB129D2a6c30D0763d9a5C970">
+          </div>
 
           <button
             class="btn btn-primary btn-lg btn-block mb-3"
@@ -126,7 +136,7 @@ export function erc20Component(parentContainer) {
           </p>
           <hr />
           <div class="form-group">
-            <label>Transfer From</label>
+            <label>Transfer From (empty for current account)</label>
             <input
               class="form-control"
               id="transferFromSenderInput"
@@ -138,6 +148,7 @@ export function erc20Component(parentContainer) {
             <input
               class="form-control"
               id="transferFromRecipientInput"
+              value="0x2f318C334780961FB129D2a6c30D0763d9a5C970"
             />
           </div>
           <button
@@ -212,6 +223,8 @@ export function erc20Component(parentContainer) {
   const transferFromRecipientInput = document.getElementById(
     'transferFromRecipientInput',
   );
+  const tokenAmountInput = document.getElementById('tokenAmountInput');
+  const transferToInput = document.getElementById('transferToInput');
   const tokenSymbol = 'TST';
 
   transferTokensDeeplink.href = `https://metamask.app.link/send/${globalContext.deployedContractAddress}/transfer?address=0x2f318C334780961FB129D2a6c30D0763d9a5C970&uint256=4e${globalContext.tokenDecimals}`;
@@ -364,6 +377,13 @@ export function erc20Component(parentContainer) {
     return result;
   }
 
+  function getAmountInAtoms() {
+    const decimals = Number(decimalUnitsInput.value);
+    const trimRegex = new RegExp(`^\\d*\\.?\\d{0,${decimals}}`, 'u');
+    const match = tokenAmountInput.value.match(trimRegex);
+    return utils.parseUnits(match ? match[0] : '1', decimals).toHexString();
+  }
+
   function withErrorHandling(fn) {
     return async (...args) => {
       try {
@@ -375,38 +395,27 @@ export function erc20Component(parentContainer) {
   }
 
   transferTokens.onclick = withErrorHandling(() =>
-    makeOperation(
-      'transfer',
-      '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
-      BigNumber.from(10)
-        .pow(decimalUnitsInput.value)
-        .mul(3)
-        .div(2)
-        .toHexString(),
-    ),
+    makeOperation('transfer', transferToInput.value, getAmountInAtoms()),
   );
 
   approveTokens.onclick = withErrorHandling(() =>
-    makeOperation(
-      'approve',
-      approveTokensToInput.value,
-      BigNumber.from(10).pow(decimalUnitsInput.value).mul(7).toHexString(),
-    ),
+    makeOperation('approve', approveTokensToInput.value, getAmountInAtoms()),
   );
 
   increaseTokenAllowance.onclick = withErrorHandling(() =>
     makeOperation(
       'increaseAllowance',
       approveTokensToInput.value,
-      BigNumber.from(10).pow(decimalUnitsInput.value).mul(1).toHexString(),
+      getAmountInAtoms(),
     ),
   );
 
   getAllowance.onclick = withErrorHandling(async () => {
-    const result = await makeOperation(
-      'allowance',
+    const contract = hstContract || globalContext.hstContract;
+    const result = await contract.allowance(
       allowanceOwnerInput.value,
       allowanceSpenderInput.value,
+      { from: globalContext.accounts[0] },
     );
     allowanceAmountResult.innerHTML = utils.formatUnits(
       result,
@@ -417,40 +426,22 @@ export function erc20Component(parentContainer) {
   transferFromTokens.onclick = withErrorHandling(async () => {
     const result = await makeOperation(
       'transferFrom',
-      transferFromSenderInput.value,
+      transferFromSenderInput.value || globalContext.accounts[0],
       transferFromRecipientInput.value,
-      BigNumber.from(10)
-        .pow(decimalUnitsInput.value)
-        .mul(3)
-        .div(2)
-        .toHexString(),
+      getAmountInAtoms(),
     );
     tokenMethodsResult.innerHTML = result;
   });
 
   transferTokensWithoutGas.onclick = withErrorHandling(() =>
-    makeOperation(
-      'transfer',
-      '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
-      BigNumber.from(10)
-        .pow(decimalUnitsInput.value)
-        .mul(3)
-        .div(2)
-        .toHexString(),
-      {
-        gasPrice: '20000000000',
-      },
-    ),
+    makeOperation('transfer', transferToInput.value, getAmountInAtoms(), {
+      gasPrice: '20000000000',
+    }),
   );
 
   approveTokensWithoutGas.onclick = withErrorHandling(() =>
-    makeOperation(
-      'approve',
-      '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
-      BigNumber.from(10).pow(decimalUnitsInput.value).mul(7).toHexString(),
-      {
-        gasPrice: '20000000000',
-      },
-    ),
+    makeOperation('approve', transferToInput.value, getAmountInAtoms(), {
+      gasPrice: '20000000000',
+    }),
   );
 }

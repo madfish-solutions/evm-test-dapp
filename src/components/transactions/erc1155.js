@@ -24,6 +24,16 @@ export function erc1155Component(parentContainer) {
         </button>
 
         <div class="form-group">
+          <label>Batch Mint Receiver (empty for current account)</label>
+          <input
+            class="form-control"
+            type="text"
+            placeholder="0x..."
+            id="batchMintReceiverInput"
+          />
+        </div>
+
+        <div class="form-group">
           <label>Batch Mint Token IDs</label>
           <input
             class="form-control"
@@ -54,6 +64,27 @@ export function erc1155Component(parentContainer) {
         </div>
 
         <div class="form-group">
+          <label>Batch Transfer From (empty for current account)</label>
+          <input
+            class="form-control"
+            type="text"
+            placeholder="0x..."
+            id="batchTransferFromInput"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Batch Transfer To</label>
+          <input
+            class="form-control"
+            type="text"
+            placeholder="0x..."
+            id="batchTransferToInput"
+            value="0x2f318C334780961FB129D2a6c30D0763d9a5C970"
+          />
+        </div>
+
+        <div class="form-group">
           <label>Batch Transfer Token IDs</label>
           <input
             class="form-control"
@@ -81,6 +112,17 @@ export function erc1155Component(parentContainer) {
           >
             Batch Transfer
           </button>
+        </div>
+
+        <div class="form-group">
+          <label>Spender Address</label>
+          <input
+            class="form-control"
+            type="text"
+            placeholder="0x..."
+            id="spenderAddressInput"
+            value="0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4"
+          />
         </div>
 
         <div class="form-group">
@@ -135,9 +177,16 @@ export function erc1155Component(parentContainer) {
     specifyGasParametersInputId,
   );
   const deployERC1155Button = document.getElementById('deployERC1155Button');
+  const batchMintReceiverInput = document.getElementById(
+    'batchMintReceiverInput',
+  );
   const batchMintTokenIds = document.getElementById('batchMintTokenIds');
   const batchMintIdAmounts = document.getElementById('batchMintIdAmounts');
   const batchMintButton = document.getElementById('batchMintButton');
+  const batchTransferFromInput = document.getElementById(
+    'batchTransferFromInput',
+  );
+  const batchTransferToInput = document.getElementById('batchTransferToInput');
   const batchTransferTokenIds = document.getElementById(
     'batchTransferTokenIds',
   );
@@ -147,6 +196,7 @@ export function erc1155Component(parentContainer) {
   const batchTransferFromButton = document.getElementById(
     'batchTransferFromButton',
   );
+  const spenderAddressInput = document.getElementById('spenderAddressInput');
   const setApprovalForAllERC1155Button = document.getElementById(
     'setApprovalForAllERC1155Button',
   );
@@ -170,6 +220,8 @@ export function erc1155Component(parentContainer) {
     batchTransferTokenIds.disabled = true;
     batchTransferTokenAmounts.disabled = true;
     batchTransferFromButton.disabled = true;
+    batchTransferFromInput.disabled = true;
+    batchTransferToInput.disabled = true;
     setApprovalForAllERC1155Button.disabled = true;
     revokeERC1155Button.disabled = true;
     watchAssetInput.disabled = true;
@@ -186,7 +238,10 @@ export function erc1155Component(parentContainer) {
     erc1155Status.innerHTML = 'Deployed';
     batchMintButton.disabled = false;
     batchMintTokenIds.disabled = false;
+    batchMintReceiverInput.disabled = false;
     batchMintIdAmounts.disabled = false;
+    batchTransferFromInput.disabled = false;
+    batchTransferToInput.disabled = false;
     batchTransferTokenIds.disabled = false;
     batchTransferTokenAmounts.disabled = false;
     batchTransferFromButton.disabled = false;
@@ -241,7 +296,7 @@ export function erc1155Component(parentContainer) {
     const contract = erc1155Contract || globalContext.erc1155Contract;
     let result;
     if (specifyGasParametersInput.checked) {
-      result = await contract[method](...args);
+      result = await (await contract[method](...args)).wait();
     } else {
       const params = await contract.populateTransaction[method](...args);
       result = await globalContext.provider.request({
@@ -251,7 +306,6 @@ export function erc1155Component(parentContainer) {
     }
 
     console.log(result);
-    result = await result.wait();
 
     return result;
   }
@@ -261,7 +315,7 @@ export function erc1155Component(parentContainer) {
     try {
       await makeOperation(
         'mintBatch',
-        globalContext.accounts[0],
+        batchMintReceiverInput.value || globalContext.accounts[0],
         batchMintTokenIds.value.split(',').map(Number),
         batchMintIdAmounts.value.split(',').map(Number),
         '0x',
@@ -278,8 +332,8 @@ export function erc1155Component(parentContainer) {
     try {
       await makeOperation(
         'safeBatchTransferFrom',
-        globalContext.accounts[0],
-        '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
+        batchTransferFromInput.value || globalContext.accounts[0],
+        batchTransferToInput.value,
         batchTransferTokenIds.value.split(',').map(Number),
         batchTransferTokenAmounts.value.split(',').map(Number),
         '0x',
@@ -294,11 +348,7 @@ export function erc1155Component(parentContainer) {
   setApprovalForAllERC1155Button.onclick = async () => {
     erc1155Status.innerHTML = 'Set Approval For All initiated';
     try {
-      await makeOperation(
-        'setApprovalForAll',
-        '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
-        true,
-      );
+      await makeOperation('setApprovalForAll', spenderAddressInput.value, true);
       erc1155Status.innerHTML = 'Set Approval For All completed';
     } catch (error) {
       console.error(error);
@@ -311,7 +361,7 @@ export function erc1155Component(parentContainer) {
     try {
       await makeOperation(
         'setApprovalForAll',
-        '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
+        spenderAddressInput.value,
         false,
       );
       erc1155Status.innerHTML = 'Revoke completed';

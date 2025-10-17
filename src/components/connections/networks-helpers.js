@@ -77,15 +77,21 @@ const NETWORKS = [
     category: 'test',
   },
   {
-    name: 'Mega Testnet',
-    chainId: '0x1a4',
+    name: 'MegaETH Testnet',
+    chainId: '0x18c6',
     color: '#ff6b35',
     category: 'test',
   },
   {
     name: 'Monad Testnet',
-    chainId: '0x1a5',
+    chainId: '0x279f',
     color: '#ff6b35',
+    category: 'test',
+  },
+  {
+    name: 'KAVA Testnet',
+    chainId: '0x8ad',
+    color: '#7cb342',
     category: 'test',
   },
 ];

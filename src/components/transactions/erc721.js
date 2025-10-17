@@ -90,6 +90,15 @@ export function erc721Component(parentContainer) {
           </div>
 
           <div class="form-group">
+            <label>Spender Address</label>
+            <input
+              class="form-control"
+              id="spenderAddress"
+              value="0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4"
+            />
+          </div>
+
+          <div class="form-group">
             <button
               class="btn btn-primary btn-lg btn-block mb-3"
               id="approveButton"
@@ -126,6 +135,24 @@ export function erc721Component(parentContainer) {
               type="number"
               id="transferTokenInput"
               value="1"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>From</label>
+            <input
+              class="form-control"
+              id="transferFromAddress"
+              value=""
+            />
+          </div>
+
+          <div class="form-group">
+            <label>To</label>
+            <input
+              class="form-control"
+              id="transferToAddress"
+              value="0x2f318C334780961FB129D2a6c30D0763d9a5C970"
             />
           </div>
 
@@ -179,6 +206,11 @@ export function erc721Component(parentContainer) {
     </div>`,
   );
 
+  const spenderAddressInput = document.getElementById('spenderAddress');
+  const transferFromAddressInput = document.getElementById(
+    'transferFromAddress',
+  );
+  const transferToAddressInput = document.getElementById('transferToAddress');
   const specifyGasParametersInput = document.getElementById(
     specifyGasParametersInputId,
   );
@@ -326,7 +358,7 @@ export function erc721Component(parentContainer) {
     const contract = nftsContract || globalContext.nftsContract;
     let result;
     if (specifyGasParametersInput.checked) {
-      result = await contract[method](...args);
+      result = await (await contract[method](...args)).wait();
     } else {
       const params = await contract.populateTransaction[method](...args);
       result = await globalContext.provider.request({
@@ -335,7 +367,6 @@ export function erc721Component(parentContainer) {
       });
     }
 
-    result = await result.wait();
     console.log(result);
 
     return result;
@@ -440,7 +471,7 @@ export function erc721Component(parentContainer) {
     nftsStatus.innerHTML = 'Approve initiated';
     await makeOperation(
       'approve',
-      '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
+      spenderAddressInput.value,
       approveTokenInput.value,
     );
     nftsStatus.innerHTML = 'Approve completed';
@@ -448,21 +479,13 @@ export function erc721Component(parentContainer) {
 
   setApprovalForAllButton.onclick = async () => {
     nftsStatus.innerHTML = 'Set Approval For All initiated';
-    await makeOperation(
-      'setApprovalForAll',
-      '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
-      true,
-    );
+    await makeOperation('setApprovalForAll', spenderAddressInput.value, true);
     nftsStatus.innerHTML = 'Set Approval For All completed';
   };
 
   revokeButton.onclick = async () => {
     nftsStatus.innerHTML = 'Revoke initiated';
-    await makeOperation(
-      'setApprovalForAll',
-      '0x9bc5baF874d2DA8D216aE9f137804184EE5AfEF4',
-      false,
-    );
+    await makeOperation('setApprovalForAll', spenderAddressInput.value, false);
     nftsStatus.innerHTML = 'Revoke completed';
   };
 
@@ -470,8 +493,8 @@ export function erc721Component(parentContainer) {
     nftsStatus.innerHTML = 'Transfer From initiated';
     await makeOperation(
       'transferFrom',
-      globalContext.accounts[0],
-      '0x2f318C334780961FB129D2a6c30D0763d9a5C970',
+      transferFromAddressInput.value,
+      transferToAddressInput.value,
       transferTokenInput.value,
     );
     nftsStatus.innerHTML = 'Transfer From completed';
