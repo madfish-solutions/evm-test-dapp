@@ -5,7 +5,7 @@ export function specifyGasParametersInputComponent(parentContainer) {
     'beforeend',
     `<div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-12 d-flex align-items-center">
       <label for="${specifyGasParametersInputId}" class="!mb-0 font-weight-normal">
-        Specify Gas Parameters (not for contract deployment)
+        Estimate before sending (does not affect contract deployment)
       </label>
       <input
         class="ml-2"
